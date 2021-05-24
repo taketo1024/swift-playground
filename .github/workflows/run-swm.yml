@@ -18,10 +18,10 @@ jobs:
           TERM=xterm ssh -t -t -o 'StrictHostKeyChecking no' "${{ secrets.SSH_LOGIN_USER }}@${{ secrets.SSH_HOST }}" <<EOF
           set -ex
 
-          [ -d app ] || git clone https://github.com/kishikawakatsumi/swift-playground.git app
+          [ -d app ] || git clone https://github.com/taketo1024/swift-playground.git app
 
           cd app
-          git pull --rebase origin master
+          git pull --rebase origin taketo1024/swm
 
           docker_compose='docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "\$PWD:\$PWD" -w="\$PWD" docker/compose:latest'
           eval \$docker_compose --file docker-compose-swm.yml pull
