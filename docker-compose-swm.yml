@@ -41,4 +41,4 @@ services:
 
   swift-5.4:
     image: taketo1024/swift-swm:5.4
-    container_name: swift-swm-5.4
+    container_name: swift-5.4
