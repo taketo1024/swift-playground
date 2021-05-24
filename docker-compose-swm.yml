@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   app:
-    image: ${{ secrets.DOCKER_HUB_USERNAME }}/swift-playground:latest
+    image: taketo1024/swift-playground:latest
     container_name: swift-playground
     env_file:
       - .env
