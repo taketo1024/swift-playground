@@ -1,0 +1,21 @@
+name: Build Docker Images (swm)
+on:
+  push:
+    branches: [taketo1024/swm]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+      - name: Build Docker Images
+        run: |
+          set -ex
+
+          (cd swift-docker/swm && docker build --rm --tag ${{ secrets.DOCKER_HUB_USERNAME }}/swift-swm:5.4 . && docker push ${{ secrets.DOCKER_HUB_USERNAME }}/swift-swm:5.4)
