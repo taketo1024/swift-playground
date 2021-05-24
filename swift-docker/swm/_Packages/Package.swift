@@ -18,10 +18,6 @@ let package = Package(
 			from: "1.0.0"
 		),
         .package(
-			url: "https://github.com/taketo1024/swm-topology.git",
-			from: "1.0.0"
-		),
-        .package(
 			url: "https://github.com/taketo1024/swm-homology.git",
 			from: "1.0.0"
 		),
@@ -35,7 +31,7 @@ let package = Package(
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-kr.git",
-			from: "1.0.0"
+			from: "0.1.0"
 		),
     ],
     targets: [
