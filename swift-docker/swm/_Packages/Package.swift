@@ -48,7 +48,7 @@ let package = Package(
                 .product(name: "SwmKhovanov", package: "swm-khovanov"),
                 .product(name: "SwmHFK", package: "swm-hfk"),
                 .product(name: "SwmKR", package: "swm-kr"),
-			]
+			],
             swiftSettings: [
                 .unsafeFlags(["-cross-module-optimization"], .when(configuration: .release)),
             ]
