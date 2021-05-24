@@ -40,5 +40,5 @@ services:
     restart: always
 
   swift-5.4:
-    image: ${{ secrets.DOCKER_HUB_USERNAME }}/swift-swm:5.4
+    image: taketo1024/swift-swm:5.4
     container_name: swift-swm-5.4
