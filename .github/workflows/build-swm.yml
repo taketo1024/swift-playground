@@ -16,4 +16,4 @@ jobs:
         run: |
           set -ex
 
-          (cd swift-docker/swm && docker build --rm --tag ${{ secrets.DOCKER_HUB_USERNAME }}/swift-swm:5.4 . && docker push ${{ secrets.DOCKER_HUB_USERNAME }}/swift-swm:5.4)
+          (cd swift-docker/swm && docker build --rm --tag ${{ secrets.DOCKER_HUB_USERNAME }}/swift:5.4 . && docker push ${{ secrets.DOCKER_HUB_USERNAME }}/swift:5.4)
