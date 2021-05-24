@@ -1,7 +1,5 @@
 name: Deploy (swm)
 on:
-  push:
-    branches: [taketo1024/swm]
   workflow_dispatch:
 
 jobs:
