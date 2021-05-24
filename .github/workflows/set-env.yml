@@ -1,0 +1,34 @@
+name: Set env (swm)
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy
+        run: |
+          set -ex
+
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          export TERM=xterm
+          set -ex
+
+          [ -d app ] || git clone https://github.com/kishikawakatsumi/swift-playground.git app
+
+          cd app
+          git pull --rebase origin master
+
+          sudo chmod 666 /var/run/docker.sock
+          chmod 773 Resources/Temp
+
+          echo GOOGLE_CLOUD_PLATFORM_PROJECT_ID=${{ secrets.GOOGLE_CLOUD_PLATFORM_PROJECT_ID }} > .env
+          echo FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} > .env
+          echo FIREBASE_REFRESH_TOKEN=${{ secrets.FIREBASE_REFRESH_TOKEN }} >> .env
+
+          exit 0
+          EOF
