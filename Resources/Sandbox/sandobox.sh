@@ -13,7 +13,7 @@ fi
 # 10 processes limit
 # 256 MB memory limit
 # 60% CPU usage
-containerId=$(docker run --env _COLOR=$_COLOR --rm --detach --ulimit fsize=10000000:10000000 --pids-limit 10 --memory 256m --cpus="0.6" "$@")
+containerId=$(docker run --env _COLOR=$_COLOR --rm --detach --ulimit fsize=10000000:10000000 --pids-limit 10 --memory 600m --cpus="1.0" "$@")
 status=$($timeoutCommand "$to" docker wait "$containerId" || true)
 docker kill $containerId &> /dev/null
 docker rm -f $containerId &> /dev/null
