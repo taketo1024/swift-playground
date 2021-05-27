@@ -1,6 +1,9 @@
 name: Build Docker Images (swm)
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - 'swift-docker/swm/_Packages/Package.swift'
 
 jobs:
   build:
