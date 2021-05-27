@@ -142,7 +142,7 @@ func routes(_ app: Application) throws {
              toolchainVersion.compare("5.3", options: .numeric) != .orderedAscending ?
                 "-I ./swiftfiddle.com/_Packages/.build/release/ -L ./swiftfiddle.com/_Packages/.build/release/ -l_Packages" :
                 "")
-        let timeout = parameter.timeout ?? 60 // Default timeout is 60 seconds
+        let timeout = parameter.timeout ?? 600 // Default timeout is 60 seconds
         let color = parameter._color ?? false
 
         var environment = ProcessEnv.vars
