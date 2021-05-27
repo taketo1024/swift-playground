@@ -11,27 +11,27 @@ let package = Package(
     dependencies: [
         .package(
 			url: "https://github.com/taketo1024/swm-core.git",
-			from:"1.0.1"
+			from:"1.1.1"
 		),
+        .package(
+            url: "https://github.com/taketo1024/swm-matrix-tools.git",
+            from: "1.0.0"
+        ),
         .package(
 			url: "https://github.com/taketo1024/swm-knots.git",
 			from: "1.0.0"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-homology.git",
-			from: "1.0.0"
+			from: "1.1.0"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-khovanov.git",
-			from: "1.0.0"
-		),
-        .package(
-			url: "https://github.com/taketo1024/swm-hfk.git",
-			from: "1.0.0"
+			from: "1.1.0"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-kr.git",
-			from: "0.1.0"
+			from: "0.2.0"
 		),
     ],
     targets: [
@@ -42,7 +42,6 @@ let package = Package(
                 .product(name: "SwmKnots", package: "swm-knots"),
                 .product(name: "SwmHomology", package: "swm-homology"),
                 .product(name: "SwmKhovanov", package: "swm-khovanov"),
-                .product(name: "SwmHFK", package: "swm-hfk"),
                 .product(name: "SwmKR", package: "swm-kr"),
 			],
             swiftSettings: [
