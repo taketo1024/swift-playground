@@ -1,6 +1,10 @@
 name: Run (swm)
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build Docker Images (swm)"]
+    types:
+      - completed
 
 jobs:
   run:
