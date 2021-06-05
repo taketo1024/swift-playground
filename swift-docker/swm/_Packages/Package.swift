@@ -11,27 +11,23 @@ let package = Package(
     dependencies: [
         .package(
 			url: "https://github.com/taketo1024/swm-core.git",
-			from:"1.2.1"
+			from:"1.2.2"
 		),
-        .package(
-            url: "https://github.com/taketo1024/swm-matrix-tools.git",
-            from: "1.1.1"
-        ),
         .package(
 			url: "https://github.com/taketo1024/swm-knots.git",
 			from: "1.1.0"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-homology.git",
-			from: "1.2.0"
+			from: "1.2.1"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-khovanov.git",
-			from: "1.1.1"
+			from: "1.1.2"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-kr.git",
-			from: "0.3.0"
+			from: "0.3.1"
 		),
     ],
     targets: [
