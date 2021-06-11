@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   app:
-    image: taketo1024/swift-playground:latest
+    image: kishikawakatsumi/swift-playground:latest
     container_name: swift-playground
     env_file:
       - .env
