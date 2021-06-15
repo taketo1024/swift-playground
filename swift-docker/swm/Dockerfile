@@ -27,8 +27,8 @@ RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true && ap
 # uid                  Swift 5.x Release Signing Key <swift-infrastructure@swift.org
 ARG SWIFT_SIGNING_KEY=A62AE125BBBFBB96A6E042EC925CC1CCED3D1561
 ARG SWIFT_PLATFORM=ubuntu20.04
-ARG SWIFT_BRANCH=swift-5.4-release
-ARG SWIFT_VERSION=swift-5.4-RELEASE
+ARG SWIFT_BRANCH=swift-5.4.1-release
+ARG SWIFT_VERSION=swift-5.4.1-RELEASE
 ARG SWIFT_WEBROOT=https://swift.org/builds/
 
 ENV SWIFT_SIGNING_KEY=$SWIFT_SIGNING_KEY \
@@ -38,7 +38,7 @@ ENV SWIFT_SIGNING_KEY=$SWIFT_SIGNING_KEY \
     SWIFT_WEBROOT=$SWIFT_WEBROOT
 
 RUN set -e; \
-    SWIFT_WEBDIR="$SWIFT_WEBROOT/$SWIFT_BRANCH/$(echo $SWIFT_PLATFORM | tr -d .)/" \
+    SWIFT_WEBDIR="$SWIFT_WEBROOT/$SWIFT_BRANCH/$(echo $SWIFT_PLATFORM | tr -d .)" \
     && SWIFT_BIN_URL="$SWIFT_WEBDIR/$SWIFT_VERSION/$SWIFT_VERSION-$SWIFT_PLATFORM.tar.gz" \
     && SWIFT_SIG_URL="$SWIFT_BIN_URL.sig" \
     # - Grab curl here so we cache better up above
@@ -47,7 +47,7 @@ RUN set -e; \
     # - Download the GPG keys, Swift toolchain, and toolchain signature, and verify.
     && export GNUPGHOME="$(mktemp -d)" \
     && curl -fsSL "$SWIFT_BIN_URL" -o swift.tar.gz "$SWIFT_SIG_URL" -o swift.tar.gz.sig \
-    && gpg --batch --quiet --keyserver ha.pool.sks-keyservers.net --recv-keys "$SWIFT_SIGNING_KEY" \
+    && gpg --batch --quiet --keyserver ipv4.pool.sks-keyservers.net --recv-keys "$SWIFT_SIGNING_KEY" \
     && gpg --batch --verify swift.tar.gz.sig swift.tar.gz \
     # - Unpack the toolchain, set libs permissions, and clean up.
     && tar -xzf swift.tar.gz --directory / --strip-components=1 \
