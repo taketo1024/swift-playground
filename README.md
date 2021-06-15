@@ -15,10 +15,27 @@
 
 SwiftFiddle is an online playground for creating, sharing and embedding Swift fiddles (little Swift programs that run directly in your browser).
 
-<img width="1280" alt="Screen Shot" src="https://user-images.githubusercontent.com/40610/114289126-6dae6780-9ab0-11eb-877d-ac29614dc053.png">
+<a href="https://swiftfiddle.com"><img width="1280" alt="Screen Shot" src="https://user-images.githubusercontent.com/40610/114289126-6dae6780-9ab0-11eb-877d-ac29614dc053.png"></a>
 
 https://swiftfiddle.com
 
-### Related Project
+## Running Locally
+
+```shell
+$ docker compose up
+```
+
+Then access `127.0.0.0` on your web browser.
+
+## Development
+
+```shell
+$ docker compose pull
+$ swift run
+```
+
+Then access `127.0.0.0:8080` on your web browser.
+
+### Related Projects
 
 - [SwiftFiddleEditor](https://github.com/kishikawakatsumi/SwiftFiddleEditor) (Provide Code Completion powered by [SourceKit-LSP](https://github.com/apple/sourcekit-lsp))

@@ -1,10 +1,9 @@
 import Vapor
-import TSCBasic
 
 private let cache = Cache<String, ByteBuffer>()
 
 func routes(_ app: Application) throws {
-    app.get { req in try index(req) }
+    app.get { (req) in try index(req) }
     app.get("index.html") { (req) in try index(req) }
     func index(_ req: Request) throws -> EventLoopFuture<View> {
         return req.view.render(
@@ -128,122 +127,58 @@ func routes(_ app: Application) throws {
 
     app.on(.POST, "run", body: .collect(maxSize: "10mb")) { (req) -> EventLoopFuture<ExecutionResponse> in
         let parameter = try req.content.decode(ExecutionRequestParameter.self)
-
-        var toolchainVersion = parameter.toolchain_version ?? stableVersion()
-        if (toolchainVersion == "latest") {
-            toolchainVersion = try! latestVersion();
-        } else if (toolchainVersion == "stable") {
-            toolchainVersion = stableVersion();
-        }
-        let command = parameter.command ?? "swift"
-        let options = parameter.options ??
-            (toolchainVersion ==
-                "nightly-main" ? "-Xfrontend -enable-experimental-concurrency -Xfrontend -enable-experimental-async-handler" :
-             toolchainVersion.compare("5.3", options: .numeric) != .orderedAscending ?
-                "-I ./swiftfiddle.com/_Packages/.build/release/ -L ./swiftfiddle.com/_Packages/.build/release/ -l_Packages" :
-                "")
-        let timeout = parameter.timeout ?? 600 // Default timeout is 60 seconds
-        let color = parameter._color ?? false
-
-        var environment = ProcessEnv.vars
-        environment["_COLOR"] = "\(color)"
-
-        guard try availableVersions().contains(toolchainVersion) else {
-            throw Abort(.badRequest)
-        }
-
-        guard ["swift", "swiftc"].contains(command) else {
-            throw Abort(.badRequest)
-        }
-
-        // Security check
-        if [";", "&", "&&", "||", "`", "(", ")", "#"].contains(where: { options.contains($0) }) {
-            throw Abort(.badRequest)
-        }
-
-        guard let code = parameter.code else {
-            throw Abort(.badRequest)
-        }
-
-        let image: String
-        if let tag = try imageTag(for: toolchainVersion) {
-            image = tag
-        } else {
-            throw Abort(.internalServerError)
-        }
+        let runner = try Runner(parameter: parameter)
 
         let promise = req.eventLoop.makePromise(of: ExecutionResponse.self)
-        let sandboxPath = URL(fileURLWithPath: "\(app.directory.resourcesDirectory)Sandbox")
-        let random = UUID().uuidString
-        let temporaryPath = URL(fileURLWithPath: "\(app.directory.resourcesDirectory)Temp/\(random)")
-
-        do {
-            try FileManager().copyItem(at: sandboxPath, to: temporaryPath)
-            try """
-                import Glibc
-                setbuf(stdout, nil)
-
-                /* Start user code. Do not edit comment generated here */
-                \(code)
-                /* End user code. Do not edit comment generated here */
-                """
-                .data(using: .utf8)?
-                .write(to: temporaryPath.appendingPathComponent("main.swift"))
-
-            let process = Process(
-                args: "sh", temporaryPath.appendingPathComponent("sandobox.sh").path,
-                "\(timeout)s",
-                "--volume",
-                "\(Environment.get("HOST_PWD") ?? app.directory.workingDirectory)Resources/Temp/\(random):/[REDACTED]",
-                image,
-                "sh",
-                "/[REDACTED]/run.sh",
-                [command, options].joined(separator: " "),
-                environment: environment
-            )
-            try process.launch()
-
-            let interval = 0.2
-            var counter: Double = 0
-            let timer = DispatchSource.makeTimerSource()
-
-            let completedPath = temporaryPath.appendingPathComponent("completed")
-            let stdoutPath = temporaryPath.appendingPathComponent("stdout")
-            let stderrPath = temporaryPath.appendingPathComponent("stderr")
-            let versionPath = temporaryPath.appendingPathComponent("version")
-
-            timer.setEventHandler {
-                counter += 1
-                if let completed = try? String(contentsOf: completedPath) {
-                    let stderr = (try? String(contentsOf: stderrPath)) ?? ""
-                    let version = (try? String(contentsOf: versionPath)) ?? "N/A"
-
-                    promise.succeed(ExecutionResponse(output: completed, errors: stderr, version: version))
-
-                    try? FileManager().removeItem(at: temporaryPath)
-                    timer.cancel()
-                } else if interval * counter < Double(timeout) {
-                    return
-                } else {
-                    let stdout = (try? String(contentsOf: stdoutPath)) ?? ""
-
-                    let stderr = "\((try? String(contentsOf: stderrPath)) ?? "")Maximum execution time of \(timeout) seconds exceeded.\n"
-                    let version = (try? String(contentsOf: versionPath)) ?? "N/A"
-
-                    promise.succeed(ExecutionResponse(output: stdout, errors: stderr, version: version))
-
-                    try? FileManager().removeItem(at: temporaryPath)
-                    timer.cancel()
-                }
+        try runner.run(
+            application: app,
+            onComplete: { (response) in
+                promise.succeed(response)
+            },
+            onTimeout: { (response) in
+                promise.succeed(response)
             }
-            timer.schedule(deadline: .now() + .milliseconds(200), repeating: .milliseconds(200))
-            timer.resume()
-        } catch {
-            try? FileManager().removeItem(at: temporaryPath)
-            return req.eventLoop.makeFailedFuture(error)
-        }
+        )
 
         return promise.futureResult
+    }
+
+    app.webSocket("ws", ":nonce", "run") { (req, ws) in
+        guard let nonce = req.parameters.get("nonce") else {
+            _ = ws.close()
+            return
+        }
+
+        let timer = DispatchSource.makeTimerSource()
+        timer.setEventHandler {
+            guard let path = WorkingDirectoryRegistry.shared.get(prefix: nonce) else { return }
+
+            let completedPath = path.appendingPathComponent("completed")
+            let stdoutPath = path.appendingPathComponent("stdout")
+            let stderrPath = path.appendingPathComponent("stderr")
+            let versionPath = path.appendingPathComponent("version")
+
+            guard let version = (try? String(contentsOf: versionPath)) else { return }
+
+            let stdout = (try? String(contentsOf: stdoutPath)) ?? ""
+            let stderr = (try? String(contentsOf: stderrPath)) ?? ""
+
+            let encoder = JSONEncoder()
+            if let response = try? String(data: encoder.encode(ExecutionResponse(output: stdout, errors: stderr, version: version)), encoding: .utf8) {
+                ws.send(response)
+            }
+
+            if let _ = (try? String(contentsOf: completedPath)) {
+                timer.cancel()
+                _ = ws.close()
+            }
+        }
+        timer.schedule(deadline: .now() + .milliseconds(200), repeating: .milliseconds(200))
+        timer.resume()
+
+        _ = ws.onClose.always { _ in
+            timer.cancel()
+        }
     }
 
     app.on(.POST, "shared_link", body: .collect(maxSize: "10mb")) { (req) -> EventLoopFuture<[String: String]> in
@@ -329,36 +264,6 @@ private func handleEmbeddedContent(_ req: Request, _ promise: EventLoopPromise<R
     .cascade(to: promise)
 }
 
-private func availableVersions() throws -> [String] {
-    let process = Process(args: "docker", "images", "--filter=reference=swift", "--filter=reference=*/swift", "--format", "{{.Tag}}")
-    try process.launch()
-    try process.waitUntilExit()
-
-    guard let output = try process.result?.utf8Output(), !output.isEmpty else  {
-        return [stableVersion()]
-    }
-
-    let versions = Set(output.split(separator: "\n").map { $0.replacingOccurrences(of: "-bionic", with: "").replacingOccurrences(of: "-focal", with: "").replacingOccurrences(of: "-slim", with: "").replacingOccurrences(of: "snapshot-", with: "") }).sorted(by: >)
-    return versions.isEmpty ? [stableVersion()] : versions
-}
-
-private func imageTag(for prefix: String) throws -> String? {
-    let process = Process(args: "docker", "images", "--filter=reference=swift", "--filter=reference=*/swift", "--format", "{{.Tag}} {{.Repository}}:{{.Tag}}")
-    try process.launch()
-    try process.waitUntilExit()
-
-    guard let output = try process.result?.utf8Output(), !output.isEmpty else  {
-        return nil
-    }
-
-    return output
-        .split(separator: "\n")
-        .sorted()
-        .filter { $0.replacingOccurrences(of: "snapshot-", with: "").starts(with: prefix) }
-        .map { String($0.split(separator: " ")[1]) }
-        .first
-}
-
 private func swiftPackageInfo(_ app: Application) -> [PackageInfo] {
     let packagePath = URL(fileURLWithPath: "\(app.directory.resourcesDirectory)Views/Package.json")
     let decoder = JSONDecoder()
@@ -381,105 +286,12 @@ private func swiftPackageInfo(_ app: Application) -> [PackageInfo] {
     }
 }
 
-private struct ExecutionRequestParameter: Decodable {
-    let toolchain_version: String?
-    let command: String?
-    let options: String?
-    let code: String?
-    let timeout: Int?
-    let _color: Bool?
-}
-
-private struct SharedLinkRequestParameter: Decodable {
-    let toolchain_version: String
-    let code: String
-}
-
-private struct InitialPageResponse: Encodable {
-    let title: String
-    let versions: [VersionGroup]
-    let stableVersion: String
-    let latestVersion: String
-    let codeSnippet: String
-    let ogpImageUrl: String
-    let packageInfo: [PackageInfo]
-}
-
-private struct PackageInfo: Encodable {
-    let url: String
-    let name: String
-    let productName: String
-    let version: String
-}
-
-private struct EmbeddedPageResponse: Encodable {
-    let title: String
-    let versions: [VersionGroup]
-    let stableVersion: String
-    let latestVersion: String
-    let codeSnippet: String
-    let url: String
-    let foldRanges: [FoldRange]
-}
-
-private struct FoldRange: Codable {
-    let start: Int
-    let end: Int
-}
-
-private final class VersionGroup: Encodable {
-    let majorVersion: String
-    var versions: [String]
-
-    init(majorVersion: String, versions: [String]) {
-        self.majorVersion = majorVersion
-        self.versions = versions
-    }
-
-    static func grouped(versions: [String]) -> [VersionGroup] {
-        versions.reduce(into: [VersionGroup]()) { (versionGroup, version) in
-            let nightlyVersion = version.split(separator: "-")
-            if nightlyVersion.count == 2 {
-                let majorVersion = String(nightlyVersion[0])
-                if majorVersion != versionGroup.last?.majorVersion {
-                    versionGroup.append(VersionGroup(majorVersion: majorVersion, versions: [version]))
-                } else {
-                    versionGroup.last?.versions.append(version)
-                }
-            } else if nightlyVersion.count == 4 {
-                let majorVersion = "snapshot"
-                if majorVersion != versionGroup.last?.majorVersion {
-                    versionGroup.append(VersionGroup(majorVersion: majorVersion, versions: [nightlyVersion.joined(separator: "-")]))
-                } else {
-                    versionGroup.last?.versions.append(nightlyVersion.joined(separator: "-"))
-                }
-            } else {
-                let majorVersion = "Swift \(version.split(separator: ".")[0])"
-                if majorVersion != versionGroup.last?.majorVersion {
-                    versionGroup.append(VersionGroup(majorVersion: majorVersion, versions: [version]))
-                } else {
-                    versionGroup.last?.versions.append(version)
-                }
-            }
-        }
-    }
-}
-
-private struct ExecutionResponse: Content {
-    let output: String
-    let errors: String
-    let version: String
-}
-
-private func latestVersion() throws -> String { try availableVersions()[0] }
-private func stableVersion() -> String { "5.4" }
-
 private let defaultCodeSnippet = #"""
 import Foundation
 
 func greet(_ something: String) -> String {
-    let greeting = "Hello, " + something + "!"
-    return greeting
+  let greeting = "Hello, " + something + "!"
+  return greeting
 }
 
 // Prints "Hello, World!"

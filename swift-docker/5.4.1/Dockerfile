@@ -1,33 +1,34 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 LABEL Description="Docker Container for the Swift programming language"
 
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true && apt-get -q update && \
     apt-get -q install -y \
-    libatomic1 \
-    libcurl4 \
-    libxml2 \
-    libedit2 \
-    libsqlite3-0 \
-    libc6-dev \
     binutils \
-    libgcc-5-dev \
-    libstdc++-5-dev \
-    zlib1g-dev \
-    libpython2.7 \
-    tzdata \
     git \
+    gnupg2 \
+    libc6-dev \
+    libcurl4 \
+    libedit2 \
+    libgcc-9-dev \
+    libpython3.8 \
+    libsqlite3-0 \
+    libstdc++-9-dev \
+    libxml2 \
+    libz3-dev \
     pkg-config \
+    tzdata \
+    zlib1g-dev \
     && rm -r /var/lib/apt/lists/*
 
 # Everything up to here should cache nicely between Swift versions, assuming dev dependencies change little
 
-# pub   4096R/ED3D1561 2019-03-22 [expires: 2021-03-21]
+# pub   4096R/ED3D1561 2019-03-22 [SC] [expires: 2023-03-23]
 #       Key fingerprint = A62A E125 BBBF BB96 A6E0  42EC 925C C1CC ED3D 1561
 # uid                  Swift 5.x Release Signing Key <swift-infrastructure@swift.org
 ARG SWIFT_SIGNING_KEY=A62AE125BBBFBB96A6E042EC925CC1CCED3D1561
-ARG SWIFT_PLATFORM=ubuntu18.04
-ARG SWIFT_BRANCH=swift-5.3-release
-ARG SWIFT_VERSION=swift-5.3-RELEASE
+ARG SWIFT_PLATFORM=ubuntu20.04
+ARG SWIFT_BRANCH=swift-5.4.1-release
+ARG SWIFT_VERSION=swift-5.4.1-RELEASE
 ARG SWIFT_WEBROOT=https://swift.org/builds/
 
 ENV SWIFT_SIGNING_KEY=$SWIFT_SIGNING_KEY \

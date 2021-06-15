@@ -1,4 +1,4 @@
-FROM swift:5.3-focal as build
+FROM swift:5.4-focal as build
 
 RUN export DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true \
     && apt-get -q update \
@@ -16,13 +16,12 @@ RUN swift build --enable-test-discovery -c release
 WORKDIR /staging
 
 RUN cp "$(swift build --package-path /build -c release --show-bin-path)/Run" ./
-RUN mv /build/Public ./Public && chmod -R a-w ./Public \
-    && mv /build/Resources ./Resources && chmod -R a-w ./Resources \
-    && chmod g+w ./Resources/Temp
+RUN [ -d /build/Public ] && { mv /build/Public ./Public && chmod -R a-w ./Public; } || true
+RUN [ -d /build/Resources ] && { mv /build/Resources ./Resources && chmod -R a-w ./Resources && chmod g+w ./Resources/Temp; } || true
 
-FROM swift:5.3-focal-slim
+FROM swift:5.4-focal-slim
 
-ARG HOST_DOCKER_GROUP_ID
+ARG HOST_DOCKER_GROUP_ID=1000
 
 RUN useradd --user-group --create-home --system --skel /dev/null --home-dir /app vapor \
     && groupadd docker -g ${HOST_DOCKER_GROUP_ID} && \

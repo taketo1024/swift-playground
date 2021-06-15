@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version:5.4
 import PackageDescription
 
 let package = Package(
@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v10_15)
     ],
     dependencies: [
-        .package(url: "https://github.com/vapor/vapor.git", from: "4.45.5"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.47.0"),
         .package(url: "https://github.com/vapor/leaf.git", from: "4.1.2"),
         .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.2.2"),
     ],
@@ -23,6 +23,6 @@ let package = Package(
                 .unsafeFlags(["-cross-module-optimization"], .when(configuration: .release)),
             ]
         ),
-        .target(name: "Run", dependencies: [.target(name: "App")]),
+        .executableTarget(name: "Run", dependencies: [.target(name: "App")])
     ]
 )

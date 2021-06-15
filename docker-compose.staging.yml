@@ -2,8 +2,7 @@ version: "3.7"
 
 services:
   app:
-    build:
-      context: .
+    image: kishikawakatsumi/swift-playground:latest
     container_name: swift-playground
     depends_on:
       - nginx-proxy
@@ -13,11 +12,12 @@ services:
     environment:
       HOST_PWD: $PWD/
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      VIRTUAL_HOST: localhost,127.0.0.1
-      VIRTUAL_PORT: 8080
+      VIRTUAL_HOST: staging.swiftfiddle.com
+      VIRTUAL_PORT: "8080"
+      LETSENCRYPT_HOST: staging.swiftfiddle.com
+      LETSENCRYPT_EMAIL: kishikawakatsumi@mac.com
     ports:
       - 8080:8080
-    user: "0"
     command:
       [
         "serve",
@@ -61,6 +61,22 @@ services:
       - /var/run/docker.sock:/tmp/docker.sock:ro
     restart: always
 
+  acme-companion:
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-acme
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - dhparam:/etc/nginx/dhparam:ro
+      - certs:/etc/nginx/certs
+      - acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    restart: always
+
   swift-5.4.1:
     image: kishikawakatsumi/swift:5.4.1
     container_name: swift-5.4.1
@@ -70,3 +86,4 @@ volumes:
   html:
   dhparam:
   certs:
+  acme:
