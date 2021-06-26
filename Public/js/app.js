@@ -1,295 +1,478 @@
 "use strict";
 
-$(".selectpicker").selectpicker({
-  iconBase: "fas",
-  tickIcon: "fa-check",
-});
+import { Editor } from "./editor.js";
+import { Console } from "./console.js";
+import { LanguageServer } from "./language_server.js";
+import { Runner } from "./runner.js";
+import {
+  showShareSheet,
+  copySharedLink,
+  copyEmbedSnippet,
+} from "./share_sheet.js";
+import { uuidv4 } from "./uuid.js";
 
-$("#run-button").click(function (e) {
-  e.preventDefault();
-  run(editor);
-});
+export class App {
+  constructor(config) {
+    const initialText = config.initialText;
+    this.isEmbedded = config.isEmbedded;
+    const foldingRanges = config.foldingRanges;
 
-$("#terminal").mouseenter(function () {
-  $("#terminal>div.toolbar").fadeTo("normal", 1);
-});
+    this.editor = new Editor(initialText, this.isEmbedded);
+    this.console = new Console(document.getElementById("terminal"));
+    this.history = [];
 
-$("#terminal").mouseleave(function () {
-  $("#terminal>div.toolbar").fadeTo("normal", 0);
-});
+    this.editor.onready = () => {
+      const promises = [];
+      let sequence = 0;
 
-$("#clear-button").on("click", function (e) {
-  e.preventDefault();
-  terminal.clear();
-});
+      const languageServer = new LanguageServer(
+        "wss://lsp.swiftfiddle.com/",
+        uuidv4()
+      );
 
-$("#version-picker").on("change", function () {
-  if (this.value < "5.3") {
-    $(".package-available").hide();
-    $(".package-unavailable").show();
-  } else {
-    $(".package-available").show();
-    $(".package-unavailable").hide();
+      languageServer.onconnect = () => {
+        languageServer.openDocument(this.editor.getValue());
+      };
+
+      languageServer.onresponse = (response) => {
+        const promise = promises[response.id];
+        switch (response.method) {
+          case "hover":
+            if (!promise) {
+              return;
+            }
+            if (response.value) {
+              const range = new monaco.Range(
+                response.position.line,
+                response.position.utf16index,
+                response.position.line,
+                response.position.utf16index
+              );
+              promise.fulfill({
+                range: range,
+                contents: [{ value: response.value.contents.value }],
+              });
+            } else {
+              promise.fulfill();
+            }
+            break;
+          case "completion":
+            if (!promise) {
+              return;
+            }
+            if (response.value) {
+              const completions = {
+                suggestions: response.value.items.map((item) => {
+                  const textEdit = item.textEdit;
+                  const start = textEdit.range.start;
+                  const end = textEdit.range.end;
+                  const kind = languageServer.convertCompletionItemKind(
+                    item.kind
+                  );
+                  const range = new monaco.Range(
+                    start.line + 1,
+                    start.character + 1,
+                    end.line + 1,
+                    end.character + 1
+                  );
+                  return {
+                    label: item.label,
+                    kind: kind,
+                    detail: item.detail,
+                    filterText: item.filterText,
+                    insertText: textEdit.newText,
+                    range: range,
+                  };
+                }),
+              };
+              promise.fulfill(completions);
+            } else {
+              promise.fulfill();
+            }
+          case "diagnostics":
+            this.editor.clearMarkers();
+
+            if (!response.value) {
+              return;
+            }
+            const diagnostics = response.value.diagnostics;
+            if (!diagnostics || !diagnostics.length) {
+              return;
+            }
+
+            const markers = diagnostics.map((diagnostic) => {
+              const start = diagnostic.range.start;
+              const end = diagnostic.range.end;
+              const startLineNumber = start.line + 1;
+              const startColumn = start.character + 1;
+              const endLineNumber = end.line + 1;
+              const endColumn = start.character + 1;
+
+              let severity = languageServer.convertDiagnosticSeverity(
+                diagnostic.severity
+              );
+
+              return {
+                startLineNumber: startLineNumber,
+                startColumn: startColumn,
+                endLineNumber: endLineNumber,
+                endColumn: endColumn,
+                message: diagnostic.message,
+                severity: severity,
+                source: diagnostic.source,
+              };
+            });
+
+            this.editor.updateMarkers(markers);
+            break;
+          default:
+            break;
+        }
+      };
+
+      this.editor.onaction = (action) => {
+        switch (action) {
+          case "run":
+            run();
+            break;
+          case "share":
+            showShareSheet(this.editor.getValue());
+            break;
+          default:
+            break;
+        }
+      };
+
+      window.addEventListener("unload", () => {
+        languageServer.close();
+      });
+
+      this.editor.onchange = () => {
+        languageServer.syncDocument(this.editor.getValue());
+        updateButtonState(this.editor);
+      };
+      updateButtonState(this.editor);
+
+      this.editor.onhover = (position) => {
+        if (!languageServer.isReady) {
+          return;
+        }
+
+        sequence++;
+        const row = position.lineNumber - 1;
+        const column = position.column - 1;
+        languageServer.requestHover(sequence, row, column);
+
+        return new Promise((fulfill, reject) => {
+          promises[sequence] = { fulfill: fulfill, reject: reject };
+        });
+      };
+
+      this.editor.oncompletion = (position) => {
+        if (!languageServer.isReady) {
+          return;
+        }
+
+        sequence++;
+        const row = position.lineNumber - 1;
+        const column = position.column - 1;
+        languageServer.requestCompletion(sequence, row, column);
+
+        const promise = new Promise((fulfill, reject) => {
+          promises[sequence] = { fulfill: fulfill, reject: reject };
+        });
+        return promise;
+      };
+
+      if (foldingRanges && foldingRanges.length) {
+        this.editor.fold(foldingRanges);
+      }
+
+      this.editor.focus();
+      this.editor.scrollToBottm();
+      $("#run-button").removeClass("disabled");
+    };
+
+    this.setupEventHandlers();
   }
-});
 
-editor.commands.addCommand({
-  name: "run",
-  bindKey: { win: "Ctrl-Enter", mac: "Command+Enter" },
-  exec: (editor) => {
-    run(editor);
-  },
-});
-editor.commands.addCommand({
-  name: "save",
-  bindKey: { win: "Ctrl-S", mac: "Command+S" },
-  exec: (editor) => {
-    showShareSheet();
-  },
-});
+  setupEventHandlers() {
+    $("#run-button").addClass("disabled");
+    $("#run-button").click((event) => {
+      event.preventDefault();
+      this.run();
+    });
 
-const normalBuffer = [];
+    $(".selectpicker").selectpicker({
+      iconBase: "fas",
+      tickIcon: "fa-check",
+    });
 
-function run(editor) {
-  if ($("#run-button-spinner").is(":visible")) {
-    return;
+    $("#terminal").mouseenter((event) => {
+      $("#terminal>div.toolbar").fadeTo("normal", 1);
+    });
+
+    $("#terminal").mouseleave((event) => {
+      $("#terminal>div.toolbar").fadeTo("normal", 0);
+    });
+
+    $("#clear-button").on("click", (event) => {
+      event.preventDefault();
+      this.console.clear();
+      this.history.length = 0;
+    });
+
+    if (this.isEmbedded) {
+      $("#terminal").unbind("mouseenter");
+      $("#terminal").unbind("mouseleave");
+      $("#clear-button").unbind("click");
+    }
+
+    $("#version-picker").on("change", (event) => {
+      if (event.target.value < "5.3") {
+        $(".package-available").hide();
+        $(".package-unavailable").show();
+      } else {
+        $(".package-available").show();
+        $(".package-unavailable").hide();
+      }
+    });
+
+    $("#share-button").on("click", (event) => {
+      showShareSheet(this.editor.getValue());
+    });
+    $("#shared-link-copy-button").on("click", (event) => {
+      copySharedLink();
+    });
+    $("#embed-snippet-copy-button").on("click", (event) => {
+      copyEmbedSnippet();
+    });
+
+    const editorContainer = document.getElementById("editor");
+    editorContainer.addEventListener(
+      "dragover",
+      this.handleDragOver.bind(this),
+      false
+    );
+    editorContainer.addEventListener(
+      "drop",
+      this.handleFileSelect.bind(this),
+      false
+    );
   }
-  clearMarkers(editor);
-  showLoading();
 
-  Terminal.saveCursorPosition();
-  Terminal.switchAlternateBuffer();
-  Terminal.moveCursorTo(0, 0);
-  Terminal.hideCursor();
-  const altBuffer = [];
-  const cancelToken = Terminal.showSpinner("Running", () => {
-    return altBuffer.filter(Boolean);
-  });
+  handleFileSelect(event) {
+    event.stopPropagation();
+    event.preventDefault();
 
-  const nonce = uuidv4();
-  const params = {
-    toolchain_version: $("#version-picker").val(),
-    code: editor.getValue(),
-    _color: true,
-    _nonce: nonce,
-  };
+    const files = event.dataTransfer.files;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      this.editor.setValue(event.target.result);
+      this.editor.setSelection(0, 0, 0, 0);
+    };
+    reader.readAsText(files[0], "UTF-8");
+  }
 
-  const location = window.location;
-  const connection = new WebSocket(
-    // prettier-ignore
-    `${location.protocol === "https:" ? "wss:" : "ws:"}//${location.host}/ws/${nonce}/run`
-  );
-  connection.onmessage = (e) => {
-    altBuffer.length = 0;
-    altBuffer.push(...parseMessage(e.data));
-  };
+  handleDragOver(event) {
+    event.stopPropagation();
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }
 
-  const startTime = performance.now();
-  $.post("/run", params)
-    .done(function (data) {
-      Terminal.hideSpinner(cancelToken);
-      Terminal.switchNormalBuffer();
-      Terminal.showCursor();
-      Terminal.restoreCursorPosition();
-      terminal.reset();
-      normalBuffer.forEach((line) => {
+  run() {
+    if ($("#run-button-spinner").is(":visible")) {
+      return;
+    }
+
+    this.editor.clearMarkers();
+    this.showLoading();
+
+    this.console.saveCursorPosition();
+    this.console.switchAlternateBuffer();
+    this.console.moveCursorTo(0, 0);
+    this.console.hideCursor();
+
+    const altBuffer = [];
+    const cancelToken = this.console.showSpinner("Running", () => {
+      return altBuffer.filter(Boolean);
+    });
+
+    const params = {
+      toolchain_version: $("#version-picker").val(),
+      code: this.editor.getValue(),
+      _color: true,
+      _nonce: uuidv4(),
+    };
+
+    const runner = new Runner();
+    runner.onmessage = () => {
+      altBuffer.length = 0;
+      altBuffer.push(...this.parseMessage(e.data));
+    };
+
+    runner.run(params, (buffer, stderr) => {
+      this.console.hideSpinner(cancelToken);
+      this.console.switchNormalBuffer();
+      this.console.showCursor();
+      this.console.restoreCursorPosition();
+      this.console.reset();
+
+      this.history.forEach((line) => {
         const regex =
           /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
         const plainText = line.replace(regex, "");
-        terminal.write(`\x1b[2m${plainText}`);
+        this.console.write(`\x1b[2m${plainText}`);
       });
-
-      const endTime = performance.now();
-      const execTime = ` ${((endTime - startTime) / 1000).toFixed(0)}s`;
-
-      const now = new Date();
-      const timestamp = now.toLocaleString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-
-      const buffer = [];
-      buffer.push(
-        `\x1b[38;5;72m${data.version
-          .split("\n")
-          .map((line, i) => {
-            const padding =
-              terminal.cols - line.length - timestamp.length - execTime.length;
-            let _1 = "";
-            if (padding < 0) {
-              _1 = `\x1b[0m${timestamp}${execTime}\n`;
-            } else {
-              _1 = "";
-            }
-            let _2 = "";
-            if (padding >= 0) {
-              _2 = `${" ".repeat(padding)}\x1b[0m${timestamp}${execTime}`;
-            } else {
-              _2 = "";
-            }
-            if (i == 0) {
-              return `${_1}\x1b[38;5;156m\x1b[2m${line}\x1b[0m${_2}`;
-            } else {
-              return `\x1b[38;5;156m\x1b[2m${line}\x1b[0m`;
-            }
-          })
-          .join("\n")}\x1b[0m`
-      );
-
-      const match = data.errors.match(
-        /Maximum execution time of \d+ seconds exceeded\./
-      );
-      if (match) {
-        buffer.push(`${data.errors.replace(match[0], "")}\x1b[0m`);
-      } else {
-        buffer.push(`${data.errors}\x1b[0m`);
-      }
-
-      if (data.output) {
-        buffer.push(`\x1b[37m${data.output}\x1b[0m`);
-      } else {
-        buffer.push(`\x1b[0m\x1b[1m*** No output. ***\x1b[0m\n`);
-      }
-
-      if (match) {
-        buffer.push(`\x1b[31;1m${match[0]}\n`); // Timeout error
-      }
+      this.history.push(...buffer);
 
       buffer.forEach((line) => {
-        terminal.write(line);
+        this.console.write(line);
       });
-      normalBuffer.push(...buffer);
 
-      const annotations = parceErrorMessage(data.errors);
-      updateAnnotations(editor, annotations);
-    })
-    .fail(function (response) {
-      Terminal.hideSpinner(cancelToken);
-      alert(`[Status: ${response.status}] Something went wrong`);
-    })
-    .always(function () {
-      connection.close();
-      hideLoading();
-      editor.focus();
+      const markers = this.parseErrorMessage(stderr);
+      this.editor.updateMarkers(markers);
+
+      this.hideLoading();
+      this.editor.focus();
     });
-}
-
-function clearMarkers(editor) {
-  Object.entries(editor.session.getMarkers()).forEach(([key, value]) => {
-    editor.session.removeMarker(value.id);
-  });
-}
-
-function parceErrorMessage(message) {
-  const matches = message
-    .replace(
-      /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
-      ""
-    )
-    .matchAll(
-      /\/\[REDACTED\]\/main\.swift:(\d+):(\d+): (error|warning|note): ([\s\S]*?)\n*(?=(?:\/|$))/gi
-    );
-  return [...matches].map((match) => {
-    return {
-      row: match[1] - 1 - 4, // 4 lines of code inserted by default
-      column: match[2] - 1,
-      text: match[4],
-      type: match[3].replace("note", "info"),
-      full: match[0],
-    };
-  });
-}
-
-function updateAnnotations(editor, annotations) {
-  editor.session.setAnnotations(annotations);
-
-  annotations.forEach((annotation) => {
-    const marker = annotation.text.match(/\^\~*/i);
-    editor.session.addMarker(
-      new Range(
-        annotation.row,
-        annotation.column,
-        annotation.row,
-        annotation.column + (marker ? marker[0].length : 1)
-      ),
-      `editor-marker-${annotation.type}`,
-      "text"
-    );
-  });
-}
-
-function parseMessage(message) {
-  const lines = [];
-
-  const data = JSON.parse(message);
-  const version = data.version;
-  const stderr = data.errors;
-  const stdout = data.output;
-
-  if (version) {
-    lines.push(
-      ...version
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          return {
-            text: `\x1b[38;5;156m\x1b[2m${line}\x1b[0m`,
-            numberOfLines: Math.ceil(line.length / terminal.cols),
-          };
-        })
-    );
-  }
-  if (stderr) {
-    lines.push(
-      ...stderr
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          return {
-            text: `${line}\x1b[0m`,
-            numberOfLines: Math.ceil(line.length / terminal.cols),
-          };
-        })
-    );
-  }
-  if (stdout) {
-    lines.push(
-      ...stdout
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => {
-          return {
-            text: `\x1b[37m${line}\x1b[0m`,
-            numberOfLines: Math.ceil(line.length / terminal.cols),
-          };
-        })
-    );
   }
 
-  return lines;
+  showLoading() {
+    if (!this.isEmbedded) {
+      $("#run-button-text").hide();
+    }
+    $("#run-button").addClass("disabled");
+    $("#run-button-icon").hide();
+    $("#run-button-spinner").show();
+  }
+
+  hideLoading() {
+    $("#run-button").removeClass("disabled");
+    $("#run-button-icon").show();
+    $("#run-button-spinner").hide();
+    if (!this.isEmbedded) {
+      $("#run-button-text").show();
+    }
+  }
+
+  parseMessage(message) {
+    const lines = [];
+
+    const data = JSON.parse(message);
+    const version = data.version;
+    const stderr = data.errors;
+    const stdout = data.output;
+
+    if (version) {
+      lines.push(
+        ...version
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => {
+            return {
+              text: `\x1b[38;5;156m\x1b[2m${line}\x1b[0m`,
+              numberOfLines: Math.ceil(line.length / terminal.cols),
+            };
+          })
+      );
+    }
+    if (stderr) {
+      lines.push(
+        ...stderr
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => {
+            return {
+              text: `${line}\x1b[0m`,
+              numberOfLines: Math.ceil(line.length / terminal.cols),
+            };
+          })
+      );
+    }
+    if (stdout) {
+      lines.push(
+        ...stdout
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => {
+            return {
+              text: `\x1b[37m${line}\x1b[0m`,
+              numberOfLines: Math.ceil(line.length / terminal.cols),
+            };
+          })
+      );
+    }
+
+    return lines;
+  }
+
+  parseErrorMessage(message) {
+    const matches = message
+      .replace(
+        // Remove all ANSI colors/styles from strings
+        // https://stackoverflow.com/a/29497680/1733883
+        // https://github.com/chalk/ansi-regex/blob/main/index.js#L3
+        /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+        ""
+      )
+      .matchAll(
+        /\/\[REDACTED\]\/main\.swift:(\d+):(\d+): (error|warning|note): ([\s\S]*?)\n*(?=(?:\/|$))/gi
+      );
+    return [...matches].map((match) => {
+      const row = +match[1] - 4; // 4 lines of code inserted by default
+      let column = +match[2];
+      const text = match[4];
+      const type = match[3];
+      let severity;
+      switch (type) {
+        case "warning":
+          severity = monaco.MarkerSeverity.Warning;
+          break;
+        case "error":
+          severity = monaco.MarkerSeverity.Error;
+          break;
+        default:
+          severity = monaco.MarkerSeverity.Info;
+          break;
+      }
+
+      let length;
+      if (text.match(/~+\^~+/)) {
+        // ~~~^~~~
+        length = text.match(/~+\^~+/)[0].length;
+        column -= text.match(/~+\^/)[0].length - 1;
+      } else if (text.match(/\^~+/)) {
+        // ^~~~
+        length = text.match(/\^~+/)[0].length;
+      } else if (text.match(/~+\^/)) {
+        // ~~~^
+        length = text.match(/~+\^/)[0].length;
+        column -= length - 1;
+      } else if (text.match(/\^/)) {
+        // ^
+        length = 1;
+      }
+
+      return {
+        startLineNumber: row,
+        startColumn: column,
+        endLineNumber: row,
+        endColumn: column + length,
+        message: text,
+        severity: severity,
+      };
+    });
+  }
 }
 
-function showLoading() {
-  $("#run-button").addClass("disabled");
-  $("#run-button-text").hide();
-  $("#run-button-icon").hide();
-  $("#run-button-spinner").show();
-}
-
-function hideLoading() {
-  $("#run-button").removeClass("disabled");
-  $("#run-button-text").show();
-  $("#run-button-icon").show();
-  $("#run-button-spinner").hide();
-}
-
-function uuidv4() {
-  return ([1e7] + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) =>
-    (
-      c ^
-      (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (c / 4)))
-    ).toString(16)
-  );
+function updateButtonState(editor) {
+  const value = editor.getValue();
+  if (!value || !value.trim()) {
+    $("#run-button").prop("disabled", true);
+    $("#share-button").prop("disabled", true);
+  } else {
+    $("#run-button").prop("disabled", false);
+    $("#share-button").prop("disabled", false);
+  }
 }

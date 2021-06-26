@@ -22,15 +22,13 @@
     integrity="sha512-ARJR74swou2y0Q2V9k0GbzQ/5vJ2RBSoCWokg4zkfM29Fb3vZEQyv0iWBMW/yvKgyHSR/7D64pFMmU8nYmbRkg=="
     crossorigin="anonymous" />
 
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.25.2/min/vs/editor/editor.main.min.css"
+    integrity="sha512-Aplc5M1v/ytxu11jVmWdmKQLn3SLeNHcv8ii1tWmMl61RFoGC5AXM1qSVDIpQorqQmY9FmO1U2Mw1PopeSCGrA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/xterm/3.14.5/xterm.min.css"
     integrity="sha512-iLYuqv+v/P4u9erpk+KM83Ioe/l7SEmr7wB6g+Kg1qmEit8EShDKnKtLHlv2QXUp7GGJhmqDI+1PhJYLTsfb8w=="
-    crossorigin="anonymous" />
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/default.min.css"
-    integrity="sha512-kZqGbhf9JTB4bVJ0G8HCkqmaPcRgo88F0dneK30yku5Y/dep7CZfCnNml2Je/sY4lBoqoksXz4PtVXS4GHSUzQ=="
-    crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.5.0/styles/xcode.min.css"
-    integrity="sha512-ybdAWCxicaDEY4FipBITKDwSRqSDUcV1pPngUvjnCliYYU42rmMvt5obpvCZp7xCEpNU0OKIh6M60VGCVH1Z/w=="
     crossorigin="anonymous" />
 
   <link rel="stylesheet" href="/css/editor.css">
@@ -38,21 +36,14 @@
   <link rel="stylesheet" href="/css/button.css">
   <link rel="stylesheet" href="/css/share_sheet.css">
 
-  <link rel="apple-touch-icon" sizes="57x57" href="images/apple-icon-57x57.png">
-  <link rel="apple-touch-icon" sizes="60x60" href="images/apple-icon-60x60.png">
-  <link rel="apple-touch-icon" sizes="72x72" href="images/apple-icon-72x72.png">
-  <link rel="apple-touch-icon" sizes="76x76" href="images/apple-icon-76x76.png">
-  <link rel="apple-touch-icon" sizes="114x114" href="images/apple-icon-114x114.png">
-  <link rel="apple-touch-icon" sizes="120x120" href="images/apple-icon-120x120.png">
-  <link rel="apple-touch-icon" sizes="144x144" href="images/apple-icon-144x144.png">
-  <link rel="apple-touch-icon" sizes="152x152" href="images/apple-icon-152x152.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="images/apple-icon-180x180.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="images/android-icon-192x192.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="images/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="96x96" href="images/favicon-96x96.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="images/favicon-16x16.png">
-  <meta name="msapplication-TileColor" content="\#ffffff">
-  <meta name="msapplication-TileImage" content="images/ms-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/favicons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicons/favicon-16x16.png">
+  <link rel="manifest" href="/favicons/site.webmanifest">
+  <link rel="mask-icon" href="/favicons/safari-pinned-tab.svg" color="\#5bbad5">
+  <link rel="shortcut icon" href="/favicons/favicon.ico">
+  <meta name="msapplication-TileColor" content="\#da532c">
+  <meta name="msapplication-config" content="/favicons/browserconfig.xml">
   <meta name="theme-color" content="\#ffffff">
 
   <title>SwiftFiddle - Swift Online Playground</title>
@@ -73,7 +64,7 @@
   <div class="container-fluid" style="padding: 0 0 4px 0;">
     <div class="row no-gutters">
       <div class="col-md-6">
-        <pre id="editor"><xmp>#(codeSnippet)</xmp></pre>
+        <div id="editor"></div>
       </div>
       <div class="col-md-6">
         <div id="terminal" style="position: relative;">
@@ -118,8 +109,8 @@
                 style="width: 1.3rem; height: 1.3rem; display: none;" role="status" aria-hidden="true"></span>
             </button>
           </div>
-          <button type="button" id="share-button" class="btn btn-info btn-circle btn-circle-sm"
-            onclick="showShareSheet();" aria-label="Share" style="margin-left: 8px;">
+          <button type="button" id="share-button" class="btn btn-info btn-circle btn-circle-sm" aria-label="Share"
+            style="margin-left: 8px;">
             <span class="fa fa-share-alt"></span>
           </button>
           <button type="button" class="btn btn-secondary btn-circle btn-circle-sm" data-toggle="modal"
@@ -192,9 +183,9 @@
         <div class="modal-footer">
           <label style="font-weight: 600">Page Link <span id="shared-link-copy-message"></span></label><br>
           <div class="fluid">
-            <input class="ur" id="shared-link" type="url" disabled="disabled" style="width: 96%; height: 40px;"
+            <input id="shared-link" class="ur" type="url" disabled="disabled" style="width: 96%; height: 40px;"
               aria-describedby="inputGroup-sizing-default" aria-label="Share Link">
-            <button class="cpy shared-link-copy-button" onclick="copySharedLink()" disabled>
+            <button id="shared-link-copy-button" class="cpy shared-link-copy-button" disabled>
               <span class="far fa-clone shared-link-copy-button-icon" style="display: none;"></span>
               <div class="spinner-border spinner-border-sm shared-link-spinner" role="status">
                 <span class="sr-only">Loading...</span>
@@ -207,7 +198,7 @@
           <div class="fluid">
             <textarea class="ur" id="embed-snippet" rows="3" style="width: 96%; resize: none;" disabled="disabled"
               aria-label="Embed Snippet"></textarea>
-            <button class=" cpy shared-link-copy-button" onclick="copyEmbedSnippet()" disabled>
+            <button id="embed-snippet-copy-button" class=" cpy shared-link-copy-button" disabled>
               <span class="far fa-clone shared-link-copy-button-icon" style="display: none;"></span>
               <div class="spinner-border spinner-border-sm shared-link-spinner" role="status">
                 <span class="sr-only">Loading...</span>
@@ -260,6 +251,8 @@
     </div>
   </footer>
 
+  <script src="https://kit.fontawesome.com/108aa91541.js" crossorigin="anonymous"></script>
+
   <script src="https://code.jquery.com/jquery-3.5.1.min.js"
     integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous">
   </script>
@@ -271,40 +264,21 @@
     crossorigin="anonymous">
   </script>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.min.js"
-    integrity="sha512-GoORoNnxst42zE3rYPj4bNBm0Q6ZRXKNH2D9nEmNvVF/z24ywVnijAWVi/09iBiVDQVf3UlZHpzhAJIdd9BXqw=="
-    crossorigin="anonymous">
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ext-language_tools.min.js"
-    integrity="sha512-8qx1DL/2Wsrrij2TWX5UzvEaYOFVndR7BogdpOyF4ocMfnfkw28qt8ULkXD9Tef0bLvh3TpnSAljDC7uyniEuQ=="
-    crossorigin="anonymous">
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/theme-xcode.min.js"
-    integrity="sha512-S3wipD42Bs0Dthj5mI3YkgHBB60mCkmID1qcxv4GZXV/bVivb9PIvEEBwTeIQTcZXUHo4aj7CktRhA/c2k7ftQ=="
-    crossorigin="anonymous">
-  </script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/mode-swift.min.js"
-    integrity="sha512-5NanghFVFTJf0tjHV2hWFuF/r9LuNKq9c0Pcs+TF7vWuD0AavR6az6X/vLW1AvLCo/AZg6EIBtm2WzLKNleDAQ=="
-    crossorigin="anonymous">
-  </script>
-
   <script src="https://cdn.jsdelivr.net/npm/xterm@4.12.0/lib/xterm.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.5.0/lib/xterm-addon-fit.min.js"></script>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/highlight.min.js"
-    integrity="sha512-s+tOYYcC3Jybgr9mVsdAxsRYlGNq4mlAurOrfNuGMQ/SCofNPu92tjE7YRZCsdEtWL1yGkqk15fU/ark206YTg=="
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.25.2/min/vs/loader.min.js"
+    integrity="sha512-SExj71Cw3B9C9EE8BC/ad3AKia5zQXDj/2SM4THgkeKh5GIFZhKM/R3uclUG8YZwJrjcVhydAlIHmfNvsBCKZA=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/languages/swift.min.js"
-    integrity="sha512-UuKNZ6Y0aB1PKMUh0GSidMu0Agz+uOi1IFvEvJR5Sd7G6TqYBoP5/daB2ujD9qa9Iqn83vyXdEaZxyJKQQsf3Q=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script type="module">
+    import { App } from "/js/app.js";
 
-  <script src="https://kit.fontawesome.com/108aa91541.js" crossorigin="anonymous"></script>
-
-  <script src="/js/editor.js"></script>
-  <script src="/js/terminal.js"></script>
-  <script src="/js/share_sheet.js"></script>
-  <script src="/js/console.js"></script>
-  <script src="/js/app.js"></script>
+    const app = new App({
+      initialText: `#(codeSnippet)`,
+      isEmbedded: false,
+      foldingRanges: [],
+    });
+  </script>
 </body>
 
 </html>
