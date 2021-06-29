@@ -27,7 +27,7 @@ let package = Package(
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-kr.git",
-			from: "0.4.1"
+			from: "0.4.2"
 		),
     ],
     targets: [
