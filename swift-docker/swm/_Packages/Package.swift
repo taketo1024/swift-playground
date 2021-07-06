@@ -15,7 +15,7 @@ let package = Package(
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-knots.git",
-			from: "1.1.0"
+			from: "1.2.0"
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-homology.git",
@@ -27,7 +27,7 @@ let package = Package(
 		),
         .package(
 			url: "https://github.com/taketo1024/swm-kr.git",
-			from: "0.4.2"
+			from: "0.4.3"
 		),
     ],
     targets: [
